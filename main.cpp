@@ -100,6 +100,9 @@ int main(int argc, char **argv)
         orderer.reorder(algo);
         cout << "reordering time is: " << reorder_timer.elapsed().wall / (1e9) << '\n';
 
+
+        cout << "Writing corder map to " << write_file << '\n';
+
         std::ofstream output_file(write_file);
         output_file << graph.num_vertex << "\n";
         output_file << graph.num_edges << "\n";
