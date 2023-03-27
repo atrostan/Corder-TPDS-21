@@ -18,27 +18,25 @@ using namespace boost::timer;
 using namespace boost::program_options;
 
 //////////////////////////////////////////
-//main function
+// main function
 //////////////////////////////////////////
-int main(int argc, char** argv)
+int main(int argc, char **argv)
 {
 
     options_description desc{"Options"};
-    desc.add_options() 
-        ("data,d", value<string>()->default_value(""), "input data path")
-        ("output,o", value<string>()->default_value(""), "output file path")
-        ("size,s", value<int>()->default_value(1024), "partition size")
-        ("algorithm,a", value<int>()->default_value(0), "reordering algorithm")
-        ("thread,t", value<int>()->default_value(20), "threads");
-
+    desc.add_options()("data,d", value<string>()->default_value(""), "input data path")("output,o", value<string>()->default_value(""), "output file path")("size,s", value<int>()->default_value(1024), "partition size")("algorithm,a", value<int>()->default_value(0), "reordering algorithm")("thread,t", value<int>()->default_value(20), "threads");
 
     variables_map vm;
     try
     {
         store(parse_command_line(argc, argv, desc), vm);
         notify(vm);
-    } catch (error& e) {
-        cerr << "ERROR: " << e.what() << '\n' << '\n' << desc << '\n';
+    }
+    catch (error &e)
+    {
+        cerr << "ERROR: " << e.what() << '\n'
+             << '\n'
+             << desc << '\n';
         return 1;
     }
 
@@ -48,14 +46,16 @@ int main(int argc, char** argv)
     int reorder = vm["algorithm"].as<int>();
     params::num_threads = vm["thread"].as<int>();
 
-    if (data_file.empty()) {
+    if (data_file.empty())
+    {
         cout << desc << '\n';
         exit(1);
-    } 
+    }
 
     Algo algo = static_cast<Algo>(reorder);
     params::partition_size = size * 1024 / sizeof(float);
-     
+    std::cout << "sizeof(float): " << sizeof(float) << "\n";
+    std::cout << "params::partition_size " << params::partition_size << "\n";
     // graph object
     Graph graph;
 
@@ -65,44 +65,56 @@ int main(int argc, char** argv)
     cpu_timer timer;
     cpu_times times;
 
-    if(parseGraph(data_file, graph)) {
+    if (parseGraph(data_file, graph))
+    {
         times = timer.elapsed();
-        cout << times.wall/(1e9) << "s: parse done for " << data_file << '\n';
+        cout << times.wall / (1e9) << "s: parse done for " << data_file << '\n';
         graph.printGraph();
     }
-    
+
     //////////////////////////////////////////
     // read csr file
     //////////////////////////////////////////
-  //  writeEdgelist("edgelist.txt", graph);
-    params::num_partitions = (graph.num_vertex-1)/params::partition_size + 1;
+    //  writeEdgelist("edgelist.txt", graph);
+    params::num_partitions = (graph.num_vertex - 1) / params::partition_size + 1;
 
     cout << "number of partitions used for reordering: " << params::num_partitions
-         << " with partition size " <<  params::partition_size * sizeof(float) / 1024 << " KB" << '\n';
+         << " with partition size " << params::partition_size * sizeof(float) / 1024 << " KB" << '\n';
     //////////////////////////////////////////
     // output Degree array
     //////////////////////////////////////////
     graph.computeOutDegree();
     times = timer.elapsed();
-    cout << times.wall/(1e9) << "s: outdegree is computed "  << '\n';
+    cout << times.wall / (1e9) << "s: outdegree is computed " << '\n';
 
     ///////////////////////////////
-    // re-order the graph 
+    // re-order the graph
     //////////////////////////////
     Orderer orderer(&graph);
 
-   if(algo != Algo::original) {
+    if (algo != Algo::original)
+    {
         cpu_timer reorder_timer;
         float order_time = 0.0;
 
         orderer.reorder(algo);
-        cout << "reordering time is: "  << reorder_timer.elapsed().wall/(1e9) << '\n';
+        cout << "reordering time is: " << reorder_timer.elapsed().wall / (1e9) << '\n';
 
-        orderer.getNewGraph();
-        cout << times.wall/(1e9) << "s: a new graph is constructed, total time is: "  << reorder_timer.elapsed().wall/(1e9) << '\n';
+        std::ofstream output_file(write_file);
+        output_file << graph.num_vertex << "\n";
+        output_file << graph.num_edges << "\n";
+        uint32_t idx = 0;
+        for (const auto &id : orderer.new_id)
+        {
+            output_file << idx << " " << id << "\n";
+            idx++;
+        }
+        output_file.close();
 
-        if(!write_file.empty())
-           writeGraph(write_file, graph);
-   }
+        // orderer.getNewGraph();
+        // cout << times.wall/(1e9) << "s: a new graph is constructed, total time is: "  << reorder_timer.elapsed().wall/(1e9) << '\n';
 
+        // if(!write_file.empty())
+        //    writeGraph(write_file, graph);
+    }
 }
